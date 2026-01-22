@@ -1,7 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import SportTabs from './components/SportTabs'
 import GameCard from './components/GameCard'
 import GameDetail from './components/GameDetail'
+import ConnectionStatus from './components/ConnectionStatus'
+import Settings from './components/Settings'
+import { useOddsWebSocket } from './hooks/useOddsWebSocket'
 
 function App() {
   const [selectedSport, setSelectedSport] = useState('nba')
@@ -10,6 +13,24 @@ function App() {
   const [error, setError] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
   const [selectedGame, setSelectedGame] = useState(null)
+  const [wsEnabled, setWsEnabled] = useState(true)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+
+  // WebSocket handler for real-time updates
+  const handleOddsUpdate = useCallback((newGames) => {
+    setGames(newGames)
+    setError(null)
+  }, [])
+
+  // WebSocket connection
+  const {
+    connected,
+    connecting,
+    lastUpdate,
+    error: wsError,
+    status: wsStatus,
+    reconnect
+  } = useOddsWebSocket(selectedSport, handleOddsUpdate, wsEnabled)
 
   const fetchOdds = async (sport) => {
     setLoading(true)
@@ -61,6 +82,10 @@ function App() {
     setSelectedGame(null)
   }
 
+  const toggleWebSocket = () => {
+    setWsEnabled(!wsEnabled)
+  }
+
   useEffect(() => {
     fetchOdds(selectedSport)
   }, [])
@@ -81,18 +106,38 @@ function App() {
   return (
     <div className="app">
       <header className="header">
-        <button
-          className="refresh-button"
-          onClick={handleRefresh}
-          disabled={refreshing || loading}
-        >
-          {refreshing ? 'Refreshing...' : 'Refresh'}
-        </button>
+        <div className="header-left">
+          <button
+            className="refresh-button"
+            onClick={handleRefresh}
+            disabled={refreshing || loading}
+          >
+            {refreshing ? 'Refreshing...' : 'Refresh'}
+          </button>
+          <ConnectionStatus
+            connected={connected}
+            connecting={connecting}
+            lastUpdate={lastUpdate}
+            error={wsError}
+            status={wsStatus}
+            enabled={wsEnabled}
+            onToggle={toggleWebSocket}
+            onReconnect={reconnect}
+          />
+          <button
+            className="settings-button"
+            onClick={() => setSettingsOpen(true)}
+          >
+            Settings
+          </button>
+        </div>
         <SportTabs
           selectedSport={selectedSport}
           onSportChange={handleSportChange}
         />
       </header>
+
+      <Settings isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
       <main className="main">
         {error && <div className="error">{error}</div>}
@@ -109,6 +154,7 @@ function App() {
           <GameCard
             key={game.id}
             game={game}
+            sport={selectedSport}
             onClick={() => handleGameClick(game)}
           />
         ))}
