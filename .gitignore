@@ -36,3 +36,10 @@ Thumbs.db
 *.db
 *.sqlite
 *.sqlite3
+
+# Node
+node_modules/
+web/node_modules/
+
+# Build output
+web/dist/
